@@ -5,7 +5,7 @@ const axios = require('axios');
 const CHANNEL_ACCESS_TOKEN = process.env.CHANNEL_ACCESS_TOKEN;
 const CHANNEL_SECRET = process.env.CHANNEL_SECRET;
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
-const NVIDIA_MODEL = 'meta/llama3-8b-instruct'; // Fast, stable, standard format
+const NVIDIA_MODEL = 'mistralai/mistral-7b-instruct-v0.3'; // Fast, available model
 
 const app = express();
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf.toString(); } }));
