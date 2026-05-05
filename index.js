@@ -4,6 +4,8 @@ const axios = require('axios');
 
 const CHANNEL_ACCESS_TOKEN = process.env.CHANNEL_ACCESS_TOKEN;
 const CHANNEL_SECRET = process.env.CHANNEL_SECRET;
+const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
+const NVIDIA_MODEL = 'meta/llama3-8b-instruct'; // Fast model
 
 const app = express();
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf.toString(); } }));
@@ -52,6 +54,33 @@ async function replyMessage(replyToken, message) {
   } catch (err) {
     console.error('❌ 回覆失敗:', err.message);
     throw err;
+  }
+}
+
+async function callNvidiaLLM(userMessage) {
+  try {
+    const response = await axios.post(
+      'https://integrate.api.nvidia.com/v1/chat/completions',
+      {
+        model: NVIDIA_MODEL,
+        messages: [
+          { role: 'system', content: '你是煥然逸新房屋外觀清潔公司的客服助手。請簡潔專業地回答客戶關於外牆清潔、窗戶清潔、報價、預約等問題。' },
+          { role: 'user', content: userMessage }
+        ],
+        max_tokens: 300,
+        temperature: 0.5
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${NVIDIA_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    return response.data.choices[0].message.content.trim();
+  } catch (err) {
+    console.error('❌ NVIDIA LLM 錯誤:', err.message);
+    return null;
   }
 }
 
@@ -175,7 +204,13 @@ async function handleEvent(event) {
     if (msg.match(/保險|藥水|腐蝕/)) return replyMessage(replyToken, { type: 'text', text: FAQ[6].a });
     if (msg.match(/付款|現金|轉帳/)) return replyMessage(replyToken, { type: 'text', text: FAQ[7].a });
 
-    // 8. 無法匹配
+    // 8. 無法匹配 - 使用 NVIDIA LLM
+    const llmReply = await callNvidiaLLM(text);
+    if (llmReply) {
+      return replyMessage(replyToken, { type: 'text', text: llmReply });
+    }
+    
+    // LLM 失敗才顯示預設訊息
     return replyMessage(replyToken, {
       type: 'text',
       text: '抱歉，我暫時無法處理您的問題。請使用「主選單」選擇服務，或輸入「常見問題」查看相關資訊。'
