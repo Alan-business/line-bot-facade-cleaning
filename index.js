@@ -87,7 +87,17 @@ async function callNvidiaLLM(userMessage) {
       }
     );
     console.log('✅ LLM 回應成功，状态码:', response.status);
-    return response.data.choices[0].message.content.trim();
+    console.log('📦 返回数据结构:', JSON.stringify(response.data).substring(0, 200));
+    
+    const choice = response.data?.choices?.[0];
+    const content = choice?.message?.content;
+    
+    if (!content) {
+      console.error('❌ LLM 返回内容为空. choice:', JSON.stringify(choice).substring(0, 100));
+      return null;
+    }
+    
+    return content.trim();
   } catch (err) {
     console.error('❌ NVIDIA LLM 錯誤:');
     console.error('  状态码:', err.response?.status);
