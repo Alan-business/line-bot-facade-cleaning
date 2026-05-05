@@ -178,13 +178,8 @@ async function handleEvent(event) {
     if (msg.match(/保險|藥水|腐蝕|insurance/)) { console.log('✅ 匹配 Q7'); return replyMessage(replyToken, { type: 'text', text: FAQ[6].a }); }
     if (msg.match(/付款|現金|轉帳|payment|cash/)) { console.log('✅ 匹配 Q8'); return replyMessage(replyToken, { type: 'text', text: FAQ[7].a }); }
     
-    console.log('❌ 未匹配任何 FAQ 關鍵詞');
-
-    // 8. 無法匹配
-    return replyMessage(replyToken, {
-      type: 'text',
-      text: '抱歉，我暫時無法處理您的問題。請使用「主選單」選擇服務，或輸入「常見問題」查看相關資訊。'
-    });
+    console.log('❌ 未匹配任何 FAQ 關鍵詞，顯示主選單');
+    return replyMessage(replyToken, MAIN_MENU);
   } catch (err) {
     console.error('❌ handleEvent 錯誤:', err.message);
     throw err;
