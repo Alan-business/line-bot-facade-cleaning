@@ -1,0 +1,16 @@
+{
+  "name": "line-bot-facade-cleaning",
+  "version": "1.0.0",
+  "description": "LINE bot for facade cleaning business with NVIDIA LLM",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "express": "^4.19.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
