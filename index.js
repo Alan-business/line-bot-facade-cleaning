@@ -100,8 +100,9 @@ async function handleEvent(event) {
     const replyToken = event.replyToken;
     if (!adminUserId) adminUserId = userId;
 
-    // 1. 我的ID
-    if (text === '我的ID') {
+    // 1. 我的ID (支持多種變體)
+    const textLower = text.toLowerCase();
+    if (textLower === '我的id' || textLower === 'my id' || text === '我的ID') {
       return replyMessage(replyToken, { type: 'text', text: `你的User ID: ${userId}` });
     }
 
@@ -168,14 +169,14 @@ async function handleEvent(event) {
     const msg = text.toLowerCase();
     console.log('🔍 檢查 FAQ 關鍵詞，用戶輸入:', msg);
     
-    if (msg.match(/服務|清潔|外牆|窗戶/)) { console.log('✅ 匹配 Q1'); return replyMessage(replyToken, { type: 'text', text: FAQ[0].a }); }
-    if (msg.match(/地區|範圍|中部/)) { console.log('✅ 匹配 Q2'); return replyMessage(replyToken, { type: 'text', text: FAQ[1].a }); }
-    if (msg.match(/費用|價格|多少錢|平方|nt\$/)) { console.log('✅ 匹配 Q3'); return replyMessage(replyToken, { type: 'text', text: FAQ[2].a }); }
-    if (msg.match(/時間|多久|幾小時/)) { console.log('✅ 匹配 Q4'); return replyMessage(replyToken, { type: 'text', text: FAQ[3].a }); }
-    if (msg.match(/提前|預約|幾週/)) { console.log('✅ 匹配 Q5'); return replyMessage(replyToken, { type: 'text', text: FAQ[4].a }); }
-    if (msg.match(/在場|不在/)) { console.log('✅ 匹配 Q6'); return replyMessage(replyToken, { type: 'text', text: FAQ[5].a }); }
-    if (msg.match(/保險|藥水|腐蝕/)) { console.log('✅ 匹配 Q7'); return replyMessage(replyToken, { type: 'text', text: FAQ[6].a }); }
-    if (msg.match(/付款|現金|轉帳/)) { console.log('✅ 匹配 Q8'); return replyMessage(replyToken, { type: 'text', text: FAQ[7].a }); }
+    if (msg.match(/服務|清潔|外牆|窗戶|service|cleaning/)) { console.log('✅ 匹配 Q1'); return replyMessage(replyToken, { type: 'text', text: FAQ[0].a }); }
+    if (msg.match(/地區|範圍|中部|area|region/)) { console.log('✅ 匹配 Q2'); return replyMessage(replyToken, { type: 'text', text: FAQ[1].a }); }
+    if (msg.match(/費用|價格|多少錢|平方|nt\$|price|cost|fee/)) { console.log('✅ 匹配 Q3'); return replyMessage(replyToken, { type: 'text', text: FAQ[2].a }); }
+    if (msg.match(/時間|多久|幾小時|time|duration/)) { console.log('✅ 匹配 Q4'); return replyMessage(replyToken, { type: 'text', text: FAQ[3].a }); }
+    if (msg.match(/提前|預約|幾週|book|appointment/)) { console.log('✅ 匹配 Q5'); return replyMessage(replyToken, { type: 'text', text: FAQ[4].a }); }
+    if (msg.match(/在場|不在|present/)) { console.log('✅ 匹配 Q6'); return replyMessage(replyToken, { type: 'text', text: FAQ[5].a }); }
+    if (msg.match(/保險|藥水|腐蝕|insurance/)) { console.log('✅ 匹配 Q7'); return replyMessage(replyToken, { type: 'text', text: FAQ[6].a }); }
+    if (msg.match(/付款|現金|轉帳|payment|cash/)) { console.log('✅ 匹配 Q8'); return replyMessage(replyToken, { type: 'text', text: FAQ[7].a }); }
     
     console.log('❌ 未匹配任何 FAQ 關鍵詞');
 
