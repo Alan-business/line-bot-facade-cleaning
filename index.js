@@ -205,11 +205,17 @@ async function handleEvent(event) {
     if (msg.match(/付款|現金|轉帳/)) return replyMessage(replyToken, { type: 'text', text: FAQ[7].a });
 
     // 8. 無法匹配 - 使用 NVIDIA LLM
+    console.log('🔍 未匹配FAQ，嘗試呼叫 NVIDIA LLM...');
+    if (!NVIDIA_API_KEY) {
+      console.error('❌ NVIDIA_API_KEY 未設置');
+    }
     const llmReply = await callNvidiaLLM(text);
     if (llmReply) {
+      console.log('✅ LLM 回覆成功');
       return replyMessage(replyToken, { type: 'text', text: llmReply });
     }
     
+    console.error('❌ LLM 回覆失敗，顯示預設訊息');
     // LLM 失敗才顯示預設訊息
     return replyMessage(replyToken, {
       type: 'text',
