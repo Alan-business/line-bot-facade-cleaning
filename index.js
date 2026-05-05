@@ -5,7 +5,7 @@ const axios = require('axios');
 const CHANNEL_ACCESS_TOKEN = process.env.CHANNEL_ACCESS_TOKEN;
 const CHANNEL_SECRET = process.env.CHANNEL_SECRET;
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
-const NVIDIA_MODEL = 'meta/llama3-8b-instruct'; // Fast model
+const NVIDIA_MODEL = 'z-ai/glm4.7'; // GLM-4.7 model
 
 const app = express();
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf.toString(); } }));
@@ -59,27 +59,30 @@ async function replyMessage(replyToken, message) {
 
 async function callNvidiaLLM(userMessage) {
   try {
+    console.log('🤖 呼叫 NVIDIA LLM (z-ai/glm4.7)...');
     const response = await axios.post(
       'https://integrate.api.nvidia.com/v1/chat/completions',
       {
         model: NVIDIA_MODEL,
         messages: [
-          { role: 'system', content: '你是煥然逸新房屋外觀清潔公司的客服助手。請簡潔專業地回答客戶關於外牆清潔、窗戶清潔、報價、預約等問題。' },
+          { role: 'system', content: '你是煥然逸新房屋外觀清潔公司的客服助手。請簡潔專業地回答客戶關於外牆清潔、窗戶清潔、報價、預約等問題。回答限制在200字內。' },
           { role: 'user', content: userMessage }
         ],
         max_tokens: 300,
-        temperature: 0.5
+        temperature: 0.7
       },
       {
         headers: {
           'Authorization': `Bearer ${NVIDIA_API_KEY}`,
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 10000
       }
     );
+    console.log('✅ LLM 回應成功');
     return response.data.choices[0].message.content.trim();
   } catch (err) {
-    console.error('❌ NVIDIA LLM 錯誤:', err.message);
+    console.error('❌ NVIDIA LLM 錯誤:', err.response?.data || err.message);
     return null;
   }
 }
