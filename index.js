@@ -60,6 +60,12 @@ async function replyMessage(replyToken, message) {
 async function callNvidiaLLM(userMessage) {
   try {
     console.log('🤖 呼叫 NVIDIA LLM (z-ai/glm4.7)...');
+    if (!NVIDIA_API_KEY) {
+      console.error('❌ NVIDIA_API_KEY 未设置');
+      return null;
+    }
+    console.log('🔑 API Key 长度:', NVIDIA_API_KEY.length);
+    
     const response = await axios.post(
       'https://integrate.api.nvidia.com/v1/chat/completions',
       {
@@ -69,20 +75,23 @@ async function callNvidiaLLM(userMessage) {
           { role: 'user', content: userMessage }
         ],
         max_tokens: 300,
-        temperature: 0.7
+        temperature: 0.7,
+        stream: false
       },
       {
         headers: {
           'Authorization': `Bearer ${NVIDIA_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        timeout: 10000
+        timeout: 30000
       }
     );
-    console.log('✅ LLM 回應成功');
+    console.log('✅ LLM 回應成功，状态码:', response.status);
     return response.data.choices[0].message.content.trim();
   } catch (err) {
-    console.error('❌ NVIDIA LLM 錯誤:', err.response?.data || err.message);
+    console.error('❌ NVIDIA LLM 錯誤:');
+    console.error('  状态码:', err.response?.status);
+    console.error('  错误讯息:', err.response?.data || err.message);
     return null;
   }
 }
