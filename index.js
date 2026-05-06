@@ -5,6 +5,12 @@ const axios = require('axios');
 const CHANNEL_ACCESS_TOKEN = process.env.CHANNEL_ACCESS_TOKEN;
 const CHANNEL_SECRET = process.env.CHANNEL_SECRET;
 
+const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
+const NVIDIA_API_ENDPOINT = process.env.NVIDIA_API_ENDPOINT || 'https://integrate.api.nvidia.com/v1/chat/completions';
+const LLM_MODEL_NAME = process.env.LLM_MODEL_NAME || 'gpt-oss-20b';
+
+if (!NVIDIA_API_KEY) console.error('❌ Missing NVIDIA_API_KEY');
+
 const app = express();
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf.toString(); } }));
 
@@ -32,7 +38,8 @@ const MAIN_MENU = {
     actions: [
       { type: 'message', label: '📋 常見問題', text: '常見問題' },
       { type: 'message', label: '📅 預約清潔', text: '預約清潔' },
-      { type: 'message', label: '📞 聯絡資訊', text: '聯絡資訊' }
+      { type: 'message', label: '📞 聯絡資訊', text: '聯絡資訊' },
+      { type: 'message', label: '🤖 智能助手', text: '智能助手' }
     ]
   }
 };
@@ -73,6 +80,40 @@ async function pushMessage(userId, message) {
   }
 }
 
+async function callLLM(userMessage) {
+  try {
+    const res = await axios.post(
+      NVIDIA_API_ENDPOINT,
+      {
+        model: LLM_MODEL_NAME,
+        messages: [{ role: 'user', content: userMessage }],
+        max_tokens: 500,
+        temperature: 0.7,
+        stream: false
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${NVIDIA_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    // Truncate to LINE's 5000 character text limit
+    return res.data.choices[0].message.content.trim().slice(0, 5000);
+  } catch (err) {
+    console.error('❌ LLM 调用失败:', err.response?.data || err.message);
+    return '智能助手暂时不可用，请稍后再试';
+  }
+}
+
+async function replyWithMenuFirst(replyToken, messages) {
+  // LINE allows up to 5 messages per reply
+  const menuMessage = MAIN_MENU;
+  const actualMessages = Array.isArray(messages) ? messages : [messages];
+  const allMessages = [menuMessage, ...actualMessages].slice(0, 5);
+  return replyMessage(replyToken, allMessages);
+}
+
 app.get('/webhook', (req, res) => { res.send('OK'); });
 
 app.post('/webhook', (req, res) => {
@@ -100,43 +141,7 @@ async function handleEvent(event) {
     const replyToken = event.replyToken;
     if (!adminUserId) adminUserId = userId;
 
-    // 1. 我的ID (支持多種變體)
-    const textLower = text.toLowerCase();
-    if (textLower === '我的id' || textLower === 'my id' || text === '我的ID') {
-      return replyMessage(replyToken, { type: 'text', text: `你的User ID: ${userId}` });
-    }
-
-    // 2. 主選單
-    if (text === '主選單' || text === 'menu') {
-      users[userId] = { ...users[userId], step: 'menu' };
-      return replyMessage(replyToken, MAIN_MENU);
-    }
-
-    // 3. 常見問題
-    if (text === '常見問題' || text === 'FAQ') {
-      let replyText = '📋 常見問題 (FAQ)\n\n';
-      FAQ.forEach((item) => { replyText += `${item.q}\n${item.a}\n\n`; });
-      replyText += '輸入「預約清潔」開始預約，或「主選單」返回。';
-      return replyMessage(replyToken, { type: 'text', text: replyText });
-    }
-
-    // 4. 聯絡資訊
-    if (text === '聯絡資訊') {
-      return replyMessage(replyToken, {
-        type: 'text',
-        text: '📞 煥然逸新 房屋外觀清潔公司\n服務地區：中部地區\n服務項目：外牆及窗戶清潔\n聯絡方式：請透過「預約清潔」與我們聯絡！'
-      });
-    }
-
-    // 5. 預約清潔
-    if (text === '預約清潔' || (users[userId] && users[userId].step === 'booking')) {
-      if (!users[userId] || users[userId].step !== 'booking') {
-        users[userId] = { step: 'booking', data: {} };
-        return replyMessage(replyToken, { type: 'text', text: '📅 開始預約清潔\n請輸入您的姓名：' });
-      }
-    }
-
-    // 6. 處理預約流程
+    // Priority 1: Booking flow (never interrupt, no menu popup)
     if (users[userId] && users[userId].step === 'booking') {
       const booking = users[userId].data;
       if (!booking.name) { booking.name = text; return replyMessage(replyToken, { type: 'text', text: '請輸入您的電話號碼：' }); }
@@ -165,21 +170,66 @@ async function handleEvent(event) {
       }
     }
 
-    // 7. FAQ 關鍵詞匹配
+    // Priority 2: 主選單 (no duplicate menu)
+    if (text === '主選單' || text === 'menu') {
+      users[userId] = { ...users[userId], step: 'menu', mode: 'default' };
+      return replyMessage(replyToken, MAIN_MENU);
+    }
+
+    // Priority 3: 我的ID (menu first, then reply)
+    const textLower = text.toLowerCase();
+    if (textLower === '我的id' || textLower === 'my id' || text === '我的ID') {
+      return replyWithMenuFirst(replyToken, { type: 'text', text: `你的User ID: ${userId}` });
+    }
+
+    // Priority 4: 常見問題 (menu first, then static FAQ)
+    if (text === '常見問題' || text === 'FAQ') {
+      let replyText = '📋 常見問題 (FAQ)\n\n';
+      FAQ.forEach((item) => { replyText += `${item.q}\n${item.a}\n\n`; });
+      replyText += '輸入「預約清潔」開始預約，或「主選單」返回。';
+      return replyWithMenuFirst(replyToken, { type: 'text', text: replyText });
+    }
+
+    // Priority 5: 聯絡資訊 (menu first, then reply)
+    if (text === '聯絡資訊') {
+      return replyWithMenuFirst(replyToken, {
+        type: 'text',
+        text: '📞 煥然逸新 房屋外觀清潔公司\n服務地區：中部地區\n服務項目：外牆及窗戶清潔\n聯絡方式：請透過「預約清潔」與我們聯絡！'
+      });
+    }
+
+    // Priority 6: 智能助手 button (menu first, switch to LLM mode)
+    if (text === '智能助手') {
+      users[userId] = { ...users[userId], mode: 'llm' };
+      await replyWithMenuFirst(replyToken, { type: 'text', text: 'switching to 智能助手' });
+      return;
+    }
+
+    // Priority 7: Already in LLM mode (menu first, direct LLM call)
+    if (users[userId]?.mode === 'llm') {
+      const llmReply = await callLLM(text);
+      return replyWithMenuFirst(replyToken, { type: 'text', text: llmReply });
+    }
+
+    // Priority 8: FAQ keyword match (menu first, route to LLM instead of static reply)
     const msg = text.toLowerCase();
     console.log('🔍 檢查 FAQ 關鍵詞，用戶輸入:', msg);
     
-    if (msg.match(/服務|清潔|外牆|窗戶|service|cleaning/)) { console.log('✅ 匹配 Q1'); return replyMessage(replyToken, { type: 'text', text: FAQ[0].a }); }
-    if (msg.match(/地區|範圍|中部|area|region/)) { console.log('✅ 匹配 Q2'); return replyMessage(replyToken, { type: 'text', text: FAQ[1].a }); }
-    if (msg.match(/費用|價格|多少錢|平方|nt\$|price|cost|fee/)) { console.log('✅ 匹配 Q3'); return replyMessage(replyToken, { type: 'text', text: FAQ[2].a }); }
-    if (msg.match(/時間|多久|幾小時|time|duration/)) { console.log('✅ 匹配 Q4'); return replyMessage(replyToken, { type: 'text', text: FAQ[3].a }); }
-    if (msg.match(/提前|預約|幾週|book|appointment/)) { console.log('✅ 匹配 Q5'); return replyMessage(replyToken, { type: 'text', text: FAQ[4].a }); }
-    if (msg.match(/在場|不在|present/)) { console.log('✅ 匹配 Q6'); return replyMessage(replyToken, { type: 'text', text: FAQ[5].a }); }
-    if (msg.match(/保險|藥水|腐蝕|insurance/)) { console.log('✅ 匹配 Q7'); return replyMessage(replyToken, { type: 'text', text: FAQ[6].a }); }
-    if (msg.match(/付款|現金|轉帳|payment|cash/)) { console.log('✅ 匹配 Q8'); return replyMessage(replyToken, { type: 'text', text: FAQ[7].a }); }
+    const isFAQMatch = msg.match(/服務|清潔|外牆|窗戶|service|cleaning|地區|範圍|中部|area|region|費用|價格|多少錢|平方|nt\$|price|cost|fee|時間|多久|幾小時|time|duration|提前|預約|幾週|book|appointment|在場|不在|present|保險|藥水|腐蝕|insurance|付款|現金|轉帳|payment|cash/);
     
-    console.log('❌ 未匹配任何 FAQ 關鍵詞，顯示主選單');
-    return replyMessage(replyToken, MAIN_MENU);
+    if (isFAQMatch) {
+      console.log('✅ FAQ 關鍵詞匹配，轉交 LLM 處理');
+      const llmReply = await callLLM(text);
+      return replyWithMenuFirst(replyToken, { type: 'text', text: llmReply });
+    }
+
+    // Priority 9: No FAQ match (default mode) - switch to LLM
+    console.log('❌ 未匹配任何 FAQ 關鍵詞，切換至智能助手');
+    users[userId] = { ...users[userId], mode: 'llm' };
+    await replyWithMenuFirst(replyToken, { type: 'text', text: 'switching to 智能助手' });
+    const llmReply = await callLLM(text);
+    return replyMessage(replyToken, llmReply);
+
   } catch (err) {
     console.error('❌ handleEvent 錯誤:', err.message);
     throw err;
