@@ -86,7 +86,13 @@ async function callLLM(userMessage) {
       NVIDIA_API_ENDPOINT,
       {
         model: LLM_MODEL_NAME,
-        messages: [{ role: 'user', content: userMessage }],
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful assistant. Please respond ONLY in Traditional Chinese (繁體中文) or English. Do NOT use Simplified Chinese (简体中文) or any other languages. If the user asks in English, reply in English. If the user asks in Chinese, reply in Traditional Chinese (繁體中文).'
+          },
+          { role: 'user', content: userMessage }
+        ],
         max_tokens: 500,
         temperature: 0.7,
         stream: false
@@ -214,10 +220,10 @@ async function handleEvent(event) {
       return replyWithMenuFirst(replyToken, { type: 'text', text: 'switching to 智能助手' });
     }
 
-    // Priority 7: Already in LLM mode (menu first, direct LLM call)
+    // Priority 7: Already in LLM mode (direct LLM call, no menu)
     if (users[userId]?.mode === 'llm') {
       const llmReply = await callLLM(text);
-      return replyWithMenuFirst(replyToken, { type: 'text', text: llmReply });
+      return replyMessage(replyToken, { type: 'text', text: llmReply });
     }
 
     // Priority 8: FAQ keyword match (menu first, route to LLM instead of static reply)
