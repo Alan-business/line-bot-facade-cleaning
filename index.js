@@ -211,8 +211,7 @@ async function handleEvent(event) {
     // Priority 6: 智能助手 button (menu first, switch to LLM mode)
     if (text === '智能助手') {
       users[userId] = { ...users[userId], mode: 'llm' };
-      await replyWithMenuFirst(replyToken, { type: 'text', text: 'switching to 智能助手' });
-      return;
+      return replyWithMenuFirst(replyToken, { type: 'text', text: 'switching to 智能助手' });
     }
 
     // Priority 7: Already in LLM mode (menu first, direct LLM call)
@@ -236,9 +235,11 @@ async function handleEvent(event) {
     // Priority 9: No FAQ match (default mode) - switch to LLM
     console.log('❌ 未匹配任何 FAQ 關鍵詞，切換至智能助手');
     users[userId] = { ...users[userId], mode: 'llm' };
-    await replyWithMenuFirst(replyToken, { type: 'text', text: 'switching to 智能助手' });
     const llmReply = await callLLM(text);
-    return replyMessage(replyToken, llmReply);
+    return replyWithMenuFirst(replyToken, [
+      { type: 'text', text: 'switching to 智能助手' },
+      { type: 'text', text: llmReply }
+    ]);
 
   } catch (err) {
     console.error('❌ handleEvent 錯誤:', err.message);
