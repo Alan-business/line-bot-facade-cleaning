@@ -7,7 +7,7 @@ const CHANNEL_SECRET = process.env.CHANNEL_SECRET;
 
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
 const NVIDIA_API_ENDPOINT = process.env.NVIDIA_API_ENDPOINT || 'https://integrate.api.nvidia.com/v1/chat/completions';
-const LLM_MODEL_NAME = process.env.LLM_MODEL_NAME || 'gpt-oss-20b';
+const LLM_MODEL_NAME = process.env.LLM_MODEL_NAME || 'openai/gpt-oss-20b';
 
 if (!NVIDIA_API_KEY) console.error('❌ Missing NVIDIA_API_KEY');
 
@@ -101,7 +101,14 @@ async function callLLM(userMessage) {
     // Truncate to LINE's 5000 character text limit
     return res.data.choices[0].message.content.trim().slice(0, 5000);
   } catch (err) {
-    console.error('❌ LLM 调用失败:', err.response?.data || err.message);
+    console.error('❌ LLM 调用失败:', {
+      status: err.response?.status,
+      statusText: err.response?.statusText,
+      data: err.response?.data,
+      message: err.message,
+      url: NVIDIA_API_ENDPOINT,
+      model: LLM_MODEL_NAME
+    });
     return '智能助手暂时不可用，请稍后再试';
   }
 }
