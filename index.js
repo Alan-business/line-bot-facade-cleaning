@@ -99,7 +99,10 @@ async function callLLM(userMessage) {
       }
     );
     // Truncate to LINE's 5000 character text limit
-    return res.data.choices[0].message.content.trim().slice(0, 5000);
+    // gpt-oss-20b is a reasoning model - response may be in reasoning_content or reasoning field
+    const message = res.data.choices[0].message;
+    const responseText = message.content || message.reasoning_content || message.reasoning || '无法获取回复';
+    return responseText.trim().slice(0, 5000);
   } catch (err) {
     console.error('❌ LLM 调用失败:', {
       status: err.response?.status,
